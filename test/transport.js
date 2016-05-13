@@ -6,12 +6,12 @@ import Transport from '../src/Transport';
 describe('Transport', () => {
   const transport = new Transport({ url: process.env.REDIS_URL });
 
+  before((done) => {
+    transport.open(done);
+  });
+
   after((done) => {
-    transport.close()
-      .then(() => {
-        console.log('Transport is closed');
-      })
-      .asCallback(done);
+    transport.close(done);
   });
 
   describe('Queue Transport', () => {
