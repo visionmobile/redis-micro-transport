@@ -67,9 +67,10 @@ class Queue extends EventEmitter {
 
       // close client connection if channels registry is empty
       .then(() => {
-        if (this.channels.size === 0) {
+        if (this.channels.size === 0 && this._bClient) {
           this._bClient.quit();
-          this._bClient = null; // garbage collect
+          this._bClient.removeAllListeners();
+          this._bClient = null;
         }
       });
   }
