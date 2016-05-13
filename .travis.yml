@@ -6,4 +6,4 @@ node_js:
 services:
   - redis-server
 env:
-  - REDIS_URL=localhost
+  - REDIS_URL=127.0.0.1:6379
