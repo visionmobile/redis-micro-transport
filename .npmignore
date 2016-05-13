@@ -1,0 +1,11 @@
+.travis.yml
+.env
+.eslintrc
+.gitignore
+.babelrc
+
+CHANGELOG.md
+
+test/
+docs/
+src/
