@@ -2,7 +2,7 @@
 
 A minimal microservices transport layer, based on Redis.
 
-[![Build Status](https://travis-ci.org/jmike/naomi.svg?branch=master)](https://travis-ci.org/jmike/naomi) [![npm version](https://badge.fury.io/js/naomi.svg)](https://badge.fury.io/js/naomi)
+[![Build Status](https://travis-ci.org/visionmobile/redis-micro-transport.svg?branch=master)](https://travis-ci.org/visionmobile/redis-micro-transport) [![npm version](https://badge.fury.io/js/redis-micro-transport.svg)](https://badge.fury.io/js/redis-micro-transport)
 
 #### Features
 
