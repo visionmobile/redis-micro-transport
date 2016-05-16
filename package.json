@@ -1,6 +1,6 @@
 {
   "name": "redis-micro-transport",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Microservices transport layer, based on Redis.",
   "repository": {
     "type": "git",
