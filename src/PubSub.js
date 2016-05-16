@@ -12,41 +12,60 @@ class PubSub extends EventEmitter {
     // set custom props
     this.client = client;
     this.channels = new Set();
+    this.isConnected = false;
+    this.bClient = null;
   }
 
   subscribe(channel) {
     // check if already subscribed to channel
     if (this.channels.has(channel) === true) {
-      return Promise.resolve(); // exit
+      return Promise.resolve(); // exit gracefully
     }
 
-    if (_.isNil(this._bClient)) {
-      // duplicate client for blocking operation(s)
-      this._bClient = this.client.duplicate();
+    return Promise.resolve()
 
-      // listen for specific channel messages
-      this._bClient.on('pmessage', (pattern, _channel, message) => {
-        if (this.channels.has(pattern) === true) {
-          this.emit(pattern, JSON.parse(message));
+      // open client connection
+      .tap(() => {
+        if (!this.isConnected) {
+          // duplicate client for blocking operation(s)
+          this.bClient = this.client.duplicate();
+
+          // listen for specific channel messages
+          this.bClient.on('pmessage', (pattern, _channel, message) => {
+            if (this.channels.has(pattern) === true) {
+              this.emit(pattern, JSON.parse(message));
+            }
+          });
+
+          // update internal state
+          this.isConnected = true;
         }
+      })
+
+      // update channels registry
+      .tap(() => {
+        this.channels.add(channel);
+      })
+
+      // subscribe to channel
+      .then(() => {
+        return this.bClient.psubscribeAsync(channel);
       });
-    }
-
-    // update channels registry
-    this.channels.add(channel);
-
-    // subscribe to channel
-    return this._bClient.psubscribeAsync(channel);
   }
 
   unsubscribe(channel) {
-    // check if already subscribed to channel
+    // check if channels registry is empty
+    if (this.channels.size === 0) {
+      return Promise.resolve(); // exit gracefully
+    }
+
+    // make sure channel exists in channels registry
     if (!_.isUndefined(channel) && !this.channels.has(channel)) {
       return Promise.resolve(); // exit gracefully
     }
 
     // unsubscribe from channel
-    return this._bClient.punsubscribeAsync(channel || '')
+    return this.bClient.punsubscribeAsync(channel || '')
 
       // update channels registry
       .tap(() => {
@@ -57,12 +76,16 @@ class PubSub extends EventEmitter {
         }
       })
 
-      // close client connection if channels registry is empty
-      .then(() => {
-        if (this.channels.size === 0 && this._bClient) {
-          this._bClient.removeAllListeners();
-          this._bClient.quit();
-          this._bClient = null;
+      // close client connection
+      .tap(() => {
+        if (this.isConnected && this.channels.size === 0) {
+          // remove all listeners + quit connection
+          this.bClient.removeAllListeners();
+          this.bClient.quit();
+
+          // update internal state
+          this.bClient = null;
+          this.isConnected = false;
         }
       });
   }

@@ -189,18 +189,19 @@ class Transport {
 
     return new Promise((resolve, reject) => {
       this.pubsub.once(id, ({ result, error }) => {
-        if (error) {
-          // handle Boom errors
-          if (error.isBoom === true) {
-            error = Boom.create(error.output.payload.statusCode, error.output.payload.message, error.data);
-          }
+        this.pubsub.unsubscribe(id)
+          .then(() => {
+            if (error) {
+              // handle Boom errors
+              if (error.isBoom === true) {
+                error = Boom.create(error.output.payload.statusCode, error.output.payload.message, error.data);
+              }
 
-          reject(error);
-        } else {
-          resolve(result);
-        }
-
-        this.pubsub.unsubscribe(id); // garbage collect
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          });
       });
 
       this.pubsub.subscribe(id)

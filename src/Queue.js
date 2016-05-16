@@ -12,15 +12,12 @@ class Queue extends EventEmitter {
     // set custom props
     this.client = client;
     this.queues = new Set();
+    this.isConnected = false;
+    this.bClient = null;
   }
 
   _listen() {
-    // make sure blocking operation(s) client exists
-    if (_.isNil(this._bClient)) {
-      return; // exit
-    }
-
-    this._bClient.brpopAsync.apply(this._bClient, _.concat(Array.from(this.queues), 0))
+    this.bClient.brpopAsync.apply(this.bClient, _.concat(Array.from(this.queues), 0))
 
       .spread((queue, message) => {
         this.emit(queue, JSON.parse(message));
@@ -40,22 +37,43 @@ class Queue extends EventEmitter {
       return Promise.resolve(); // exit
     }
 
-    // duplicate client for blocking operation(s)
-    if (_.isNil(this._bClient)) {
-      this._bClient = this.client.duplicate();
-    }
+    return Promise.resolve()
 
-    // update queues registry
-    this.queues.add(queue);
+      // open client connection
+      .then(() => {
+        if (this.isConnected) {
+          return false; // shouldStartListening = true
+        }
 
-    // monitor queue(s) for messages
-    this._listen();
+        // duplicate client for blocking operation(s)
+        this.bClient = this.client.duplicate();
 
-    return Promise.resolve();
+        // update internal state
+        this.isConnected = true;
+
+        return true; // shouldStartListening = true
+      })
+
+      // update queues registry
+      .tap(() => {
+        this.queues.add(queue);
+      })
+
+      // initiate internal listen operation
+      .then((shouldStartListening) => {
+        if (shouldStartListening) {
+          this._listen();
+        }
+      });
   }
 
   unsubscribe(queue) {
-    // check if already subscribed to channel
+    // check if queues registry is empty
+    if (this.queues.size === 0) {
+      return Promise.resolve(); // exit gracefully
+    }
+
+    // make sure queue exists in queues registry
     if (!_.isUndefined(queue) && !this.queues.has(queue)) {
       return Promise.resolve(); // exit gracefully
     }
@@ -71,12 +89,16 @@ class Queue extends EventEmitter {
         }
       })
 
-      // close client connection if queues registry is empty
-      .then(() => {
-        if (this.queues.size === 0 && this._bClient) {
-          this._bClient.removeAllListeners();
-          this._bClient.quit();
-          this._bClient = null;
+      // close client connection
+      .tap(() => {
+        if (this.isConnected && this.queues.size === 0) {
+          // remove all listeners + quit connection
+          this.bClient.removeAllListeners();
+          this.bClient.quit();
+
+          // update internal state
+          this.bClient = null;
+          this.isConnected = false;
         }
       });
   }
