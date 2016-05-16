@@ -17,10 +17,10 @@ class PubSub extends EventEmitter {
   subscribe(channel) {
     // check if already subscribed to channel
     if (this.channels.has(channel) === true) {
-      return Promise.resolve(); // exit gracefully
+      return Promise.resolve(); // exit
     }
 
-    if (!this._bClient) {
+    if (_.isNil(this._bClient)) {
       // duplicate client for blocking operation(s)
       this._bClient = this.client.duplicate();
 
@@ -35,21 +35,21 @@ class PubSub extends EventEmitter {
     // update channels registry
     this.channels.add(channel);
 
-    // call client subscribe
+    // subscribe to channel
     return this._bClient.psubscribeAsync(channel);
   }
 
   unsubscribe(channel) {
-    // make sure subscribed to channel
+    // check if already subscribed to channel
     if (!_.isUndefined(channel) && !this.channels.has(channel)) {
       return Promise.resolve(); // exit gracefully
     }
 
-    // unsubscribe from redis
+    // unsubscribe from channel
     return this._bClient.punsubscribeAsync(channel || '')
 
       // update channels registry
-      .then(() => {
+      .tap(() => {
         if (_.isUndefined(channel)) {
           this.channels.clear(); // remove all channels
         } else {
@@ -60,8 +60,8 @@ class PubSub extends EventEmitter {
       // close client connection if channels registry is empty
       .then(() => {
         if (this.channels.size === 0 && this._bClient) {
-          this._bClient.quit();
           this._bClient.removeAllListeners();
+          this._bClient.quit();
           this._bClient = null;
         }
       });

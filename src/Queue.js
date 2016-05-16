@@ -11,72 +11,78 @@ class Queue extends EventEmitter {
 
     // set custom props
     this.client = client;
-    this.channels = new Set();
+    this.queues = new Set();
   }
 
   _listen() {
-    this._bClient.brpopAsync.apply(this._bClient, _.concat(Array.from(this.channels), 0))
+    // make sure blocking operation(s) client exists
+    if (_.isNil(this._bClient)) {
+      return; // exit
+    }
+
+    this._bClient.brpopAsync.apply(this._bClient, _.concat(Array.from(this.queues), 0))
 
       .spread((queue, message) => {
         this.emit(queue, JSON.parse(message));
       })
 
       .finally(() => {
-        if (this.channels.size !== 0) {
+        // as long as queues registry ain't empty
+        if (this.queues.size !== 0) {
           this._listen(); // recurse
         }
       });
   }
 
-  subscribe(channel) {
-    // check if already subscribed to channel
-    if (this.channels.has(channel) === true) {
-      return Promise.resolve(); // exit gracefully
+  subscribe(queue) {
+    // check if already subscribed to queue
+    if (this.queues.has(queue) === true) {
+      return Promise.resolve(); // exit
     }
 
-    // spawn new client for blocking operation(s)
-    if (!this._bClient) {
+    // duplicate client for blocking operation(s)
+    if (_.isNil(this._bClient)) {
       this._bClient = this.client.duplicate();
     }
 
-    // update channels registry
-    this.channels.add(channel);
+    // update queues registry
+    this.queues.add(queue);
 
-    // monitor channel(s) for messages
+    // monitor queue(s) for messages
     this._listen();
 
     return Promise.resolve();
   }
 
-  unsubscribe(channel) {
-    // make sure subscribed to channel
-    if (!_.isUndefined(channel) && !this.channels.has(channel)) {
+  unsubscribe(queue) {
+    // check if already subscribed to channel
+    if (!_.isUndefined(queue) && !this.queues.has(queue)) {
       return Promise.resolve(); // exit gracefully
     }
 
     return Promise.resolve()
 
-      // update channels registry
-      .then(() => {
-        if (_.isUndefined(channel)) {
-          this.channels.clear(); // remove all channels
+      // update queues registry
+      .tap(() => {
+        if (_.isUndefined(queue)) {
+          this.queues.clear(); // remove all queues
         } else {
-          this.channels.delete(channel);
+          this.queues.delete(queue);
         }
       })
 
-      // close client connection if channels registry is empty
+      // close client connection if queues registry is empty
       .then(() => {
-        if (this.channels.size === 0 && this._bClient) {
-          this._bClient.quit();
+        if (this.queues.size === 0 && this._bClient) {
           this._bClient.removeAllListeners();
+          this._bClient.quit();
           this._bClient = null;
         }
       });
   }
 
-  postMessage(channel, message) {
-    return this.client.lpushAsync(channel, JSON.stringify(message));
+  postMessage(queue, message) {
+    return this.client.lpushAsync(queue, JSON.stringify(message));
   }
 
 }

@@ -29,7 +29,7 @@ class Transport {
     this.client = redis.createClient(this.url);
     this.isConnected = true;
 
-    // handle debug mode
+    // debug mode
     if (this.debug) {
       this.client.monitor(() => {
         console.log('Entering monitoring mode');
@@ -88,7 +88,7 @@ class Transport {
       throw new Error('Transport layer is closed or was never opened; did you forget to call #open()');
     }
 
-    // maintain a single instance of pubsub
+    // make sure pubsub is singleton
     if (!this._pubsub) {
       this._pubsub = new PubSub({ client: this.client });
     }
@@ -102,7 +102,7 @@ class Transport {
       throw new Error('Transport layer is closed or was never opened; did you forget to call #open()');
     }
 
-    // maintain a single instance of queue
+    // make sure queue is singleton
     if (!this._queue) {
       this._queue = new Queue({ client: this.client });
     }
