@@ -142,13 +142,22 @@ class Transport {
       }
 
       if (method === remoteMethod) {
-        handler.apply(null, _.concat(params, (error, result) => {
-          this.pubsub.postMessage(id, {
-            error,
-            result,
-            id: uuid.v4(),
-            jsonrpc: '2.0'
-          });
+        handler.apply(null, _.concat(params, (err, result) => {
+          if (err) {
+            let error;
+
+            if (err.isBoom === true) {
+              error = { isBoom: true, message: err.message, statusCode: err.output.statusCode, data: err.data };
+            } else if (_.isError(err)) {
+              error = { isError: true, message: err.message, name: err.name, data: err.data };
+            } else {
+              error = err;
+            }
+
+            this.pubsub.postMessage(id, { error, id: uuid.v4(), jsonrpc: '2.0' });
+          } else {
+            this.pubsub.postMessage(id, { result, id: uuid.v4(), jsonrpc: '2.0' });
+          }
         }));
       }
     });
@@ -192,12 +201,16 @@ class Transport {
         this.pubsub.unsubscribe(id)
           .then(() => {
             if (error) {
-              // handle Boom errors
               if (error.isBoom === true) {
-                error = Boom.create(error.output.payload.statusCode, error.output.payload.message, error.data);
+                reject(Boom.create(error.statusCode, error.message, error.data));
+              } else if (error.isError === true) {
+                const err = new Error(error.message);
+                err.name = error.name;
+                err.data = error.data;
+                reject(err);
+              } else {
+                reject(error);
               }
-
-              reject(error);
             } else {
               resolve(result);
             }
