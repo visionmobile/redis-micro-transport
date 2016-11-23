@@ -1,6 +1,6 @@
 import redis from 'redis';
 import Promise from 'bluebird';
-import uuid from 'node-uuid';
+import uuid from 'uuid';
 import _ from 'lodash';
 import Boom from 'boom';
 import type from 'type-of';
